@@ -4,6 +4,7 @@ services:
 
   traefik:
     image: "traefik"
+    restart: always
     container_name: "treafik_traefik"
     command:
       #- "--log.level=DEBUG"
@@ -28,6 +29,7 @@ services:
 
   whoami:
     image: "traefik/whoami"
+    restart: always
     container_name: "treafik_simple-service"
     labels:
       - "traefik.enable=true"
@@ -37,6 +39,7 @@ services:
       
   mariadb:
     image: "mariadb"
+    restart: always
     container_name: "treafik_mariadb"
     environment:
       MYSQL_ROOT_PASSWORD: "wordpress"
@@ -45,10 +48,13 @@ services:
       MYSQL_PASSWORD: "wordpress"
       TZ: "Europe/Brussels"
     volumes:
-      - db:/var/lib/mysql
+      - ./db/conf:/etc/mysql
+      - ./db/log:/var/log/mysql
+      - ./db/data:/var/lib/mysql
       
   wordpress:
     image: "wordpress"
+    restart: always
     environment:
       VIRTUAL_HOST: "wp.localhost"
       WORDPRESS_DB_HOST: "treafik_mariadb:3306"
@@ -62,10 +68,11 @@ services:
       - "traefik.http.routers.wordpress.entrypoints=websecure"
       - "traefik.http.routers.wordpress.tls.certresolver=myresolver"
     volumes:
-      - wordpress:/var/www/html
+      - ./wordpress:/var/www/html
       
   phpmyadmin:
     image: phpmyadmin:latest
+    restart: always
     environment:
       PMA_ARBITRARY: "1"
       TZ: "Europe/Brussels"
@@ -74,12 +81,11 @@ services:
       - "traefik.http.routers.phpmyadmin.rule=Host(`phpmyadmin.localhost`)"
       - "traefik.http.routers.phpmyadmin.entrypoints=websecure"
       - "traefik.http.routers.phpmyadmin.tls.certresolver=myresolver"
-    volumes:
-      - c:/Users/vincent/treafik:/data/Source
       
   duplicati:
     image: ghcr.io/linuxserver/duplicati
     container_name: duplicati
+    restart: always
     environment:
       - PUID=1000
       - PGID=1000
@@ -91,8 +97,24 @@ services:
       - "traefik.http.routers.duplicati.rule=Host(`duplicati.localhost`)"
       - "traefik.http.routers.duplicati.entrypoints=websecure"
       - "traefik.http.routers.duplicati.tls.certresolver=myresolver"
-      - "traefik.port=8200"   
+      - "traefik.port=8200"
+    volumes:
+      - c:/Users/vincent/treafik:/data
+      - c:/Users/vincent/backup-treafik:/backuplocation
       
-volumes:
-  wordpress:
-  db:
+  dbBackup:
+    image: fradelg/mysql-cron-backup
+    restart: always
+    volumes:
+      - ./dbbackup:/backup
+    environment:
+      - MYSQL_USER=wordpress
+      - MYSQL_PASS=wordpress
+      - MYSQL_DB=wordpress
+      - CRON_TIME=0 0 0 * * ? #every day at midnight
+      - MYSQL_HOST=treafik_mariadb
+      - MYSQL_PORT=3306
+      - MAX_BACKUPS=10
+      - TIMEOUT=10s
+      - INIT_BACKUP=1
+      - TZ=Europe/Brussels
