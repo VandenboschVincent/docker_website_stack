@@ -1,0 +1,98 @@
+version: "3.3"
+
+services:
+
+  traefik:
+    image: "traefik"
+    container_name: "treafik_traefik"
+    command:
+      #- "--log.level=DEBUG"
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.websecure.address=:443"
+      - "--entryPoints.web.address=:80"
+      - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
+      - "--certificatesresolvers.myresolver.acme.tlschallenge=true"
+      #- "--certificatesresolvers.myresolver.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory"
+      - "--certificatesresolvers.myresolver.acme.email=postmaster@example.com"
+      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
+    ports:
+      - "443:443"
+      - "8080:8080"
+      - "80:80"
+    volumes:
+      - "./letsencrypt:/letsencrypt"
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+
+  whoami:
+    image: "traefik/whoami"
+    container_name: "treafik_simple-service"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.whoami.rule=Host(`treafik.localhost`)"
+      - "traefik.http.routers.whoami.entrypoints=websecure"
+      - "traefik.http.routers.whoami.tls.certresolver=myresolver"
+      
+  mariadb:
+    image: "mariadb"
+    container_name: "treafik_mariadb"
+    environment:
+      MYSQL_ROOT_PASSWORD: "wordpress"
+      MYSQL_DATABASE: "wordpress"
+      MYSQL_USER: "wordpress"
+      MYSQL_PASSWORD: "wordpress"
+      TZ: "Europe/Brussels"
+    volumes:
+      - db:/var/lib/mysql
+      
+  wordpress:
+    image: "wordpress"
+    environment:
+      VIRTUAL_HOST: "wp.localhost"
+      WORDPRESS_DB_HOST: "treafik_mariadb:3306"
+      WORDPRESS_DB_USER: "wordpress"
+      WORDPRESS_DB_PASSWORD: "wordpress"
+      TZ: "Europe/Brussels"
+    container_name: "treafik_wordpress"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.wordpress.rule=Host(`wordpress.localhost`)"
+      - "traefik.http.routers.wordpress.entrypoints=websecure"
+      - "traefik.http.routers.wordpress.tls.certresolver=myresolver"
+    volumes:
+      - wordpress:/var/www/html
+      
+  phpmyadmin:
+    image: phpmyadmin:latest
+    environment:
+      PMA_ARBITRARY: "1"
+      TZ: "Europe/Brussels"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.phpmyadmin.rule=Host(`phpmyadmin.localhost`)"
+      - "traefik.http.routers.phpmyadmin.entrypoints=websecure"
+      - "traefik.http.routers.phpmyadmin.tls.certresolver=myresolver"
+    volumes:
+      - c:/Users/vincent/treafik:/data/Source
+      
+  duplicati:
+    image: ghcr.io/linuxserver/duplicati
+    container_name: duplicati
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/London
+      - CLI_ARGS= #optional
+      - TZ= Europe/Brussels
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.duplicati.rule=Host(`duplicati.localhost`)"
+      - "traefik.http.routers.duplicati.entrypoints=websecure"
+      - "traefik.http.routers.duplicati.tls.certresolver=myresolver"
+      - "traefik.port=8200"   
+      
+volumes:
+  wordpress:
+  db:
