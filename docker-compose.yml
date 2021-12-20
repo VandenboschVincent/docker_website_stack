@@ -89,7 +89,6 @@ services:
     environment:
       - PUID=1000
       - PGID=1000
-      - TZ=Europe/London
       - CLI_ARGS= #optional
       - TZ= Europe/Brussels
     labels:
@@ -99,8 +98,8 @@ services:
       - "traefik.http.routers.duplicati.tls.certresolver=myresolver"
       - "traefik.port=8200"
     volumes:
-      - c:/Users/vincent/treafik:/data
-      - c:/Users/vincent/backup-treafik:/backuplocation
+      - path_to_docker_folder:/data
+      - path_to_backup_docker_folder:/backuplocation
       
   dbBackup:
     image: fradelg/mysql-cron-backup
@@ -118,3 +117,20 @@ services:
       - TIMEOUT=10s
       - INIT_BACKUP=1
       - TZ=Europe/Brussels
+  
+  softethervpn:
+    image: siomiz/softethervpn
+    restart: always
+    environment:
+      - TZ= Europe/Brussels
+    volumes:
+      - ./vpn_server.config:/usr/vpnserver/vpn_server.config
+    cap_add:
+      - NET_ADMIN
+    ports:
+      - 500:500/udp #L2TP/IPSec
+      - 4444:443/udp #softhether management
+      - 4500:4500/udp #L2TP/IPSec
+      - 1701:1701/tcp #L2TP/IPSec
+      - 1194:1194/udp #openvpn
+      - 5555:5555/tcp #softhether vpn
